@@ -25,12 +25,16 @@ ui <- shinyUI(fluidPage(
         font-weight: 500;
         line-height: 1.5;
     }
-    .nav-tabs {
-  background-color: #583d2c ;
-    }
-      
+    
+  
+    h3{
+  color: #F8DE7E ;
+  }
+    .tabbable > .nav > li > a                  {background-color: #d9b382;  color:#043927}
+    .tabbable > .nav > li[class=active]    > a {background-color: #043927; color:#d9b382}
+    
       body {
-        background-color: #cdaf9b;
+        background-color: #E1C699;
       }
        
       footer{
@@ -101,7 +105,7 @@ ui <- shinyUI(fluidPage(
                               tabPanel(h3("Barista Schedules"),
                                        dataTableOutput("cafeHoursDataFrame"),
                                        dataTableOutput("scheduleDataFrame"))
-                  )#,
+                  )
                   #HTML('<footer>
                    #    <strong>Devuroasts</strong> 
                   #  </footer>')
