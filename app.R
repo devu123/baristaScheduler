@@ -10,7 +10,7 @@ library(readxl)
 library(ompr)
 library(ompr.roi)
 library(ROI.plugin.glpk)
-library(testit)
+library(BBmisc)
 # no data needed
 
 ui <- shinyUI(fluidPage(
@@ -67,34 +67,37 @@ ui <- shinyUI(fluidPage(
                 # Sidebar panel for inputs ----
                 
                 sidebarPanel(
-                              #add barista name and hours
-                             uiOutput("baristaName"), 
-                             uiOutput("timeInput1"), 
-                             uiOutput("timeInput2"), 
-                             uiOutput("timeInput3"), 
-                             uiOutput("timeInput4"), 
-                             uiOutput("timeInput5"), 
-                             uiOutput("timeInput6"), 
-                             uiOutput("timeInput7"),
-                             
-                             #submit button
-                             actionButton("submit", label = "Add Barista"),
-                             #clear all baristas
-                             actionButton("clear", label = "Clear All Baristas"),
-       
-                             #add cafe hours open
-                             uiOutput("cafeInput1"), 
-                             uiOutput("cafeInput2"), 
-                             uiOutput("cafeInput3"), 
-                             uiOutput("cafeInput4"), 
-                             uiOutput("cafeInput5"), 
-                             uiOutput("cafeInput6"), 
-                             uiOutput("cafeInput7"),
-                             #submit cafe time
-                             actionButton("submitHours", label = "Input Cafe Hours"),
-                             # build model, and solve model                      
-                             actionButton("run", label = "Schedule")
-                          
+                  #add barista name and hours
+                  uiOutput("baristaName"), 
+                  uiOutput("timeInput1"), 
+                  uiOutput("timeInput2"), 
+                  uiOutput("timeInput3"), 
+                  uiOutput("timeInput4"), 
+                  uiOutput("timeInput5"), 
+                  uiOutput("timeInput6"), 
+                  uiOutput("timeInput7"),
+                  uiOutput('minHoursInput'),
+                  
+                  #submit button
+                  actionButton("submit", label = "Add Barista"),
+                  #clear all baristas
+                  actionButton("clear", label = "Clear All Baristas"),
+                  
+                  #add cafe hours open
+                  uiOutput("cafeInput1"), 
+                  uiOutput("cafeInput2"), 
+                  uiOutput("cafeInput3"), 
+                  uiOutput("cafeInput4"), 
+                  uiOutput("cafeInput5"), 
+                  uiOutput("cafeInput6"), 
+                  uiOutput("cafeInput7"),
+                  uiOutput('howManyBaristasInput'),
+                  
+                  #submit cafe time
+                  actionButton("submitHours", label = "Input Cafe Hours"),
+                  # build model, and solve model                      
+                  actionButton("run", label = "Schedule")
+                  
                 )
                 ,
                 # tabs for displaying outputs ----
@@ -107,9 +110,9 @@ ui <- shinyUI(fluidPage(
                                        dataTableOutput("scheduleDataFrame"))
                   )
                   #HTML('<footer>
-                   #    <strong>Devuroasts</strong> 
+                  #    <strong>Devuroasts</strong> 
                   #  </footer>')
-                  )
+                )
   )
 ) 
 )
@@ -131,45 +134,54 @@ server <- shinyServer(function(input, output) {
   
   cafeTime <- reactiveValues()
   cafeTime$df <- data.frame(X1 = numeric(0),
-                                X2 = numeric(0),
-                                X3 = numeric(0),
-                                X4 = numeric(0),
-                                X5 = numeric(0),
-                                X6 = numeric(0),
-                                X7 = numeric(0))
+                            X2 = numeric(0),
+                            X3 = numeric(0),
+                            X4 = numeric(0),
+                            X5 = numeric(0),
+                            X6 = numeric(0),
+                            X7 = numeric(0))
+  
+  
+  minHoursListReactive <- reactiveValues()
+  
+  howManyBaristasPerHour <- reactiveValues()
   
   # on submit, update list of baristas and hours
   observeEvent(input$submit, {
-
+    
     addToBaristaPairs <- data.frame(cbind(input$barista, input$timeRange1, input$timeRange2, 
                                           input$timeRange3, input$timeRange4, input$timeRange5,
                                           input$timeRange6,input$timeRange7))
     
-
+    
     if(!(tolower(trimws(input$barista)) %in% c(0, "", " ") | is.na(input$barista))){
       
       names(addToBaristaPairs) <- c('barista', 'timeAvail1', 'timeAvail2', 'timeAvail3', 'timeAvail4', 
-                          'timeAvail5', 'timeAvail6', 'timeAvail7')
+                                    'timeAvail5', 'timeAvail6', 'timeAvail7')
       addRows <- rbind(baristaPairs$df, addToBaristaPairs)
       names(addRows) <- c('barista', 'timeAvail1', 'timeAvail2', 'timeAvail3', 'timeAvail4', 
-                                                              'timeAvail5', 'timeAvail6', 'timeAvail7')
+                          'timeAvail5', 'timeAvail6', 'timeAvail7')
       isolate(baristaPairs$df <- addRows)
-
+      
+      minHoursListReactive$dList <- c(isolate(minHoursListReactive$dList), isolate(input$baristaMinHoursInput))
+      
     }
-    })
+  })
   
   # on submitHours, log cafe time
   observeEvent(input$submitHours, {
     
     cafeHours <- data.frame(cbind(input$cafeTimeRange1, input$cafeTimeRange2, 
-                                          input$cafeTimeRange3, input$cafeTimeRange4, input$cafeTimeRange5,
-                                          input$cafeTimeRange6,input$cafeTimeRange7))
+                                  input$cafeTimeRange3, input$cafeTimeRange4, input$cafeTimeRange5,
+                                  input$cafeTimeRange6,input$cafeTimeRange7))
     
     
-      names(cafeHours) <- c('cafeTimeAvail1', 'cafeTimeAvail2', 'cafeTimeAvail3', 'cafeTimeAvail4', 
-                                    'cafeTimeAvail5', 'cafeTimeAvail6', 'cafeTimeAvail7')
-      isolate(cafeTime$df <- cafeHours)
-      
+    names(cafeHours) <- c('cafeTimeAvail1', 'cafeTimeAvail2', 'cafeTimeAvail3', 'cafeTimeAvail4', 
+                          'cafeTimeAvail5', 'cafeTimeAvail6', 'cafeTimeAvail7')
+    isolate(cafeTime$df <- cafeHours)
+    
+    howManyBaristasPerHour <<- input$howManyBaristas
+    
     
   })
   
@@ -178,14 +190,17 @@ server <- shinyServer(function(input, output) {
   observeEvent(input$clear, {
     
     isolate(baristaPairs$df <- data.frame(X1 = numeric(0),
-                                            X2 = numeric(0),
-                                            X3 = numeric(0),
-                                            X4 = numeric(0),
-                                            X5 = numeric(0),
-                                            X6 = numeric(0),
-                                            X7 = numeric(0),
-                                            X8 = numeric(0)))
+                                          X2 = numeric(0),
+                                          X3 = numeric(0),
+                                          X4 = numeric(0),
+                                          X5 = numeric(0),
+                                          X6 = numeric(0),
+                                          X7 = numeric(0),
+                                          X8 = numeric(0)))
     print('cleared all baristas')
+    
+    minHoursListReactive$dList <- NULL
+    
   })
   
   # reactive inputs defined here - input barista name
@@ -200,10 +215,10 @@ server <- shinyServer(function(input, output) {
   ###################
   # barista availability throughout week
   output$timeInput1 <- renderUI({  sliderInput("timeRange1", label = "Day 1 Availability",
-                                              min = 0,
-                                              max = 24,
-                                              value = c(0,
-                                                        0))  })
+                                               min = 0,
+                                               max = 24,
+                                               value = c(0,
+                                                         0))  })
   
   output$timeInput2 <- renderUI({  sliderInput("timeRange2", label = "Day 2 Availability",
                                                min = 0,
@@ -240,6 +255,12 @@ server <- shinyServer(function(input, output) {
                                                max = 24,
                                                value = c(0,
                                                          0))  })
+  
+  # minimum barista hours needed in schedule
+  output$minHoursInput <- renderUI({  sliderInput("baristaMinHoursInput", label = "Minimum Scheduled Hours",
+                                                  min = 0,
+                                                  max = 24,
+                                                  value = 0)  })
   
   
   
@@ -286,6 +307,11 @@ server <- shinyServer(function(input, output) {
                                                max = 24,
                                                value = c(0,
                                                          0))  })
+  # how many baristas
+  output$howManyBaristasInput <- renderUI({  radioButtons("howManyBaristas", label = "Baristas Per Hour",
+                                                          choices = c(1,2,3), selected = 1, inline = T)  })
+  
+  
   
   
   ##############################
@@ -301,17 +327,17 @@ server <- shinyServer(function(input, output) {
                      day6_avail = baristaPairs$df$timeAvail6,
                      day7_avail = baristaPairs$df$timeAvail7)
     
-      })
+  })
   
   # show hours of cafe
   cafeHoursData <- reactive({
     df2 <- data.frame(day1_cafe_hours = cafeTime$df$cafeTimeAvail1,
-                     day2_cafe_hours = cafeTime$df$cafeTimeAvail2,
-                     day3_cafe_hours = cafeTime$df$cafeTimeAvail3,
-                     day4_cafe_hours = cafeTime$df$cafeTimeAvail4,
-                     day5_cafe_hours = cafeTime$df$cafeTimeAvail5,
-                     day6_cafe_hours = cafeTime$df$cafeTimeAvail6,
-                     day7_cafe_hours = cafeTime$df$cafeTimeAvail7)
+                      day2_cafe_hours = cafeTime$df$cafeTimeAvail2,
+                      day3_cafe_hours = cafeTime$df$cafeTimeAvail3,
+                      day4_cafe_hours = cafeTime$df$cafeTimeAvail4,
+                      day5_cafe_hours = cafeTime$df$cafeTimeAvail5,
+                      day6_cafe_hours = cafeTime$df$cafeTimeAvail6,
+                      day7_cafe_hours = cafeTime$df$cafeTimeAvail7)
     
   })
   # making it easy to see who works
@@ -332,218 +358,249 @@ server <- shinyServer(function(input, output) {
   # 
   observeEvent(input$run, {
     
-  # only allow if input values exist of cafe hours and barista hours
-  if(length(cafeTime$df$cafeTimeAvail1) > 0 &
-         length( baristaPairs$df$barista) > 0){
-    
-  
-    
-    #   
-    # cafeHoursTemp = data.frame('day1_cafe_hours' = c(0,6), 'day2_cafe_hours' = c(0,0), 'day3_cafe_hours' = c(0,0),
-    #            'day4_cafe_hours' = c(0,0), 'day5_cafe_hours' = c(0,0), 'day6_cafe_hours' = c(0,0),
-    #            'day7_cafe_hours' = c(0,0), stringsAsFactors = F)
-    
-    cafeHoursTemp <- data.frame(day1_cafe_hours = cafeTime$df$cafeTimeAvail1,
-                                day2_cafe_hours = cafeTime$df$cafeTimeAvail2,
-                                day3_cafe_hours = cafeTime$df$cafeTimeAvail3,
-                                day4_cafe_hours = cafeTime$df$cafeTimeAvail4,
-                                day5_cafe_hours = cafeTime$df$cafeTimeAvail5,
-                                day6_cafe_hours = cafeTime$df$cafeTimeAvail6,
-                                day7_cafe_hours = cafeTime$df$cafeTimeAvail7, 
-                                stringsAsFactors = F)
-    
-    # get list of cafe open hours as binary
-    
-    cafeHoursOpen <<- rep(0, 24 * 7)
-    
-    hourToStart <<- 0
-    # by iterating through dataframe sequence and assigning 1 where open (where barista needed)
-    
-    sapply(cafeHoursTemp, function(X){
+    # only allow if input values exist of cafe hours and barista hours
+    if(length(cafeTime$df$cafeTimeAvail1) > 0 &
+       length( baristaPairs$df$barista) > 0){
       
-      X <- data.frame(X, stringsAsFactors = F)
       
-      for(i in seq(X[1, ], X[2, ] - 1)){
-        if(X[1,] != X[2, ]){
-          cafeHoursOpen[[i + hourToStart + 1]] <<- 1
-        }
-      }
-      hourToStart <<- hourToStart + 24
       
-    })
-    
-    # show in tab
-    output$cafeHoursVector <- renderDataTable( data.frame(cafeHoursOpen), options = 
-                                                 list(paging = F, searching = F, ordering=F, 
-                                                      language = list(
-                                                        zeroRecords = "")))
-    
-    # make list of baristas hours using same process. 
-    
-    # baristaHoursTemp  = data.frame('Barista' = c('jah','jah', 'rule','rule'), 'day1_avail' = c(0,3,3,6),'day2_avail' = c(0,3,3,6), 'day3_avail' = c(0,9,0,1),
-    #            'day4_avail' = c(0,0,0,9), 'day5_avail' = c(0,5,5,9), 'day6_avail' = c(0,9,0,1),
-    #           'day7_avail' = c(0,8,8,9), stringsAsFactors = F)
-    baristaHoursTemp = data.frame(Barista = baristaPairs$df$barista,
-                                  day1_avail = baristaPairs$df$timeAvail1,
-                                  day2_avail = baristaPairs$df$timeAvail2,
-                                  day3_avail = baristaPairs$df$timeAvail3,
-                                  day4_avail = baristaPairs$df$timeAvail4,
-                                  day5_avail = baristaPairs$df$timeAvail5,
-                                  day6_avail = baristaPairs$df$timeAvail6,
-                                  day7_avail = baristaPairs$df$timeAvail7,
+      #   
+      # cafeHoursTemp = data.frame('day1_cafe_hours' = c(0,6), 'day2_cafe_hours' = c(0,0), 'day3_cafe_hours' = c(0,0),
+      #            'day4_cafe_hours' = c(0,0), 'day5_cafe_hours' = c(0,0), 'day6_cafe_hours' = c(0,0),
+      #            'day7_cafe_hours' = c(0,0), stringsAsFactors = F)
+      
+      cafeHoursTemp <- data.frame(day1_cafe_hours = cafeTime$df$cafeTimeAvail1,
+                                  day2_cafe_hours = cafeTime$df$cafeTimeAvail2,
+                                  day3_cafe_hours = cafeTime$df$cafeTimeAvail3,
+                                  day4_cafe_hours = cafeTime$df$cafeTimeAvail4,
+                                  day5_cafe_hours = cafeTime$df$cafeTimeAvail5,
+                                  day6_cafe_hours = cafeTime$df$cafeTimeAvail6,
+                                  day7_cafe_hours = cafeTime$df$cafeTimeAvail7, 
                                   stringsAsFactors = F)
-    
-    
-    
-    baristaHoursAvail <<- rep(0, 24 * 7 * length(unique(baristaHoursTemp$Barista)))
-    
-    baristaList <<- vector(mode = "list", length(unique(baristaHoursTemp$Barista))/2)
-    baristaListCounter <<- 1
-    baristaAdd <<- 0
-    
-    for( i in seq(1, length(baristaHoursTemp$Barista), 2)){
       
-      # append name to barista list
-      baristaList[[baristaListCounter]] <- as.character(baristaHoursTemp$Barista[[i]])
-      baristaListCounter <<- baristaListCounter + 1
+      # get list of cafe open hours as binary
       
-      # make running vector of hours per barista
-      hourToStart <- 0
+      cafeHoursOpen <<- rep(0, 24 * 7)
       
-      sapply(baristaHoursTemp[which(baristaHoursTemp$Barista == baristaHoursTemp$Barista[[i]]), c(-1)], function(X){
+      hourToStart <<- 0
+      # by iterating through dataframe sequence and assigning 1 where open (where barista needed)
+      
+      sapply(cafeHoursTemp, function(X){
         
         X <- data.frame(X, stringsAsFactors = F)
-        # if last number isnt 0
-        X[] <- lapply(X[], as.character)
         
-        if(as.numeric(X[2, ]) != 0){
-          
-          
-          # iterate through and assign 1 in the availability matrix for that barista
-          for(q in seq(as.numeric(X[1, ]), as.numeric(X[2, ]) - 1)){
-            if(as.numeric(X[1,]) != as.numeric(X[2, ])){
-              
-              baristaHoursAvail[[q + hourToStart + baristaAdd + 1]] <<- 1
-            }
+        for(i in seq(X[1, ], X[2, ] - 1)){
+          if(X[1,] != X[2, ]){
+            cafeHoursOpen[[i + hourToStart + 1]] <<- 1
           }
         }
         hourToStart <<- hourToStart + 24
         
       })
       
-      baristaAdd <<- baristaAdd + (24 * 7)
+      # show in tab
+      output$cafeHoursVector <- renderDataTable( data.frame(cafeHoursOpen), options = 
+                                                   list(paging = F, searching = F, ordering=F, 
+                                                        language = list(
+                                                          zeroRecords = "")))
       
-    }
-    
-    
-    #reshape to matrix
-    baristaHoursAvailMatrix <- matrix(baristaHoursAvail,ncol = length(unlist(baristaList)))
-
-            
-    #showing on panel
-    output$baristaHoursVectors <- renderDataTable( data.frame(baristaHoursAvailMatrix), options = 
-                                                     list(paging = F, searching = F, ordering=F, 
-                                                          language = list(
-                                                            zeroRecords = "")))
-    
-    
-    baristaAvail <- data.frame(baristaHoursAvailMatrix, stringsAsFactors = F)
-    baristaAvail$rowNames <- seq(1, nrow(baristaAvail))
-    
-    amountOfBaristas <- ncol(baristaHoursAvailMatrix)
-    amountOfHours <- nrow(baristaHoursAvailMatrix)
-    
-    
-    
-    # which hours cant specific baristas work?
-    baristaUnableConstraints = character()
-
-    
-    for( i in 1:length(baristaList)){
+      # make list of baristas hours using same process. 
       
-      baristaUnableAdd <- as.numeric(baristaAvail[which(baristaAvail[i] == 0), 'rowNames'])
-      # add to the hours they cannot do
-      print(baristaUnableAdd)
-      if(length(baristaUnableAdd) > 0){
+      # baristaHoursTemp  = data.frame('Barista' = c('jah','jah', 'rule','rule'), 'day1_avail' = c(0,4,3,6),'day2_avail' = c(0,3,3,6), 'day3_avail' = c(0,9,0,1),
+      #            'day4_avail' = c(0,0,0,9), 'day5_avail' = c(0,5,5,9), 'day6_avail' = c(0,9,0,1),
+      #           'day7_avail' = c(0,8,8,9), stringsAsFactors = F)
+      baristaHoursTemp = data.frame(Barista = baristaPairs$df$barista,
+                                    day1_avail = baristaPairs$df$timeAvail1,
+                                    day2_avail = baristaPairs$df$timeAvail2,
+                                    day3_avail = baristaPairs$df$timeAvail3,
+                                    day4_avail = baristaPairs$df$timeAvail4,
+                                    day5_avail = baristaPairs$df$timeAvail5,
+                                    day6_avail = baristaPairs$df$timeAvail6,
+                                    day7_avail = baristaPairs$df$timeAvail7,
+                                    stringsAsFactors = F)
+      
+      
+      
+      baristaHoursAvail <<- rep(0, 24 * 7 * length(unique(baristaHoursTemp$Barista)))
+      
+      baristaList <<- vector(mode = "list", length(unique(baristaHoursTemp$Barista))/2)
+      baristaListCounter <<- 1
+      baristaAdd <<- 0
+      
+      for( i in seq(1, length(baristaHoursTemp$Barista), 2)){
         
-        baristaUnableConstraints <- paste0(baristaUnableConstraints, '
-      add_constraint(sum_expr(x[i, j], i = ',i,', j = c(',
-                                           paste0(baristaUnableAdd, collapse = ','),
-                                           ')) == 0) %>% ')
+        # append name to barista list
+        baristaList[[baristaListCounter]] <- as.character(baristaHoursTemp$Barista[[i]])
+        baristaListCounter <<- baristaListCounter + 1
+        
+        # make running vector of hours per barista
+        hourToStart <- 0
+        
+        sapply(baristaHoursTemp[which(baristaHoursTemp$Barista == baristaHoursTemp$Barista[[i]]), c(-1)], function(X){
+          
+          X <- data.frame(X, stringsAsFactors = F)
+          # if last number isnt 0
+          X[] <- lapply(X[], as.character)
+          
+          if(as.numeric(X[2, ]) != 0){
+            
+            
+            # iterate through and assign 1 in the availability matrix for that barista
+            for(q in seq(as.numeric(X[1, ]), as.numeric(X[2, ]) - 1)){
+              if(as.numeric(X[1,]) != as.numeric(X[2, ])){
+                
+                baristaHoursAvail[[q + hourToStart + baristaAdd + 1]] <<- 1
+              }
+            }
+          }
+          hourToStart <<- hourToStart + 24
+          
+        })
+        
+        baristaAdd <<- baristaAdd + (24 * 7)
         
       }
-    }
-    
-    
-    eval(parse( text = paste0("
+      
+      
+      #reshape to matrix
+      baristaHoursAvailMatrix <- matrix(baristaHoursAvail,ncol = length(unlist(baristaList)))
+      
+      
+      #showing on panel
+      output$baristaHoursVectors <- renderDataTable( data.frame(baristaHoursAvailMatrix), options = 
+                                                       list(paging = F, searching = F, ordering=F, 
+                                                            language = list(
+                                                              zeroRecords = "")))
+      
+      
+      baristaAvail <- data.frame(baristaHoursAvailMatrix, stringsAsFactors = F)
+      baristaAvail$rowNames <- seq(1, nrow(baristaAvail))
+      
+      amountOfBaristas <- ncol(baristaHoursAvailMatrix)
+      
+      amountOfHours <- nrow(baristaHoursAvailMatrix)
+      baristaMinHoursList <- minHoursListReactive$dList
+      
+      
+      # which hours cant specific baristas work?
+      baristaUnableConstraints = character()
+      
+      
+      for( i in 1:length(baristaList)){
+        
+        baristaUnableAdd <- as.numeric(baristaAvail[which(baristaAvail[i] == 0), 'rowNames'])
+        # add to the hours they cannot do
+        if(length(baristaUnableAdd) > 0){
+          
+          baristaUnableConstraints <- paste0(baristaUnableConstraints, '
+      add_constraint(sum_expr(x[i, j], i = ',i,', j = c(',
+                                             paste0(baristaUnableAdd, collapse = ','),
+                                             ')) == 0) %>% ')
+          
+        }
+      }
+      
+      ## add minimum hours constraint
+      baristaNeeds = character()
+      
+      for( i in 1:length(baristaList)){
+        
+        baristaNeedsOptions <- as.numeric(baristaAvail[which(baristaAvail[i] != 0), 'rowNames'])
+        # add to the hours they cannot do
+        if(length(baristaNeedsOptions) > 0){
+          
+          baristaNeeds <- paste0(baristaNeeds, '
+      add_constraint(sum_expr(x[i, j], i = ',i,', j = c(',
+                                 paste0(baristaNeedsOptions, collapse = ','),
+                                 ')) >= ',as.numeric(paste0(baristaMinHoursList[i])),') %>% ')
+          
+        }
+      }
+      
+      eval(parse( text = paste0("
     model <- MILPModel() %>% 
       add_variable(x[i,j], i = 1:amountOfBaristas, j = 1:amountOfHours, type = 'binary') %>%
 
-      add_constraint(sum_expr(x[i, j], i = 1:amountOfBaristas) == cafeHoursOpen[j], j = 1:amountOfHours) %>%
+      add_constraint(sum_expr(x[i, j], i = 1:amountOfBaristas) == cafeHoursOpen[j] * as.numeric(howManyBaristasPerHour), j = 1:amountOfHours) %>%
 
       ",
-                              paste0(baristaUnableConstraints, collapse = ''),
-                              
-                              "set_objective(sum_expr(x[i,j], i = 1:amountOfBaristas, j = 1:amountOfHours))")))
-    
-    #solving for solution
-    result <- solve_model(model, with_ROI(solver = "glpk", verbose = TRUE))
-    
-    if(result$status != 'infeasible'){
+                                paste0(baristaUnableConstraints, collapse = ''),
+                                paste0(baristaNeeds, collapse = ''),
+                                
+                                "set_objective(sum_expr(x[i,j], i = 1:amountOfBaristas, j = 1:amountOfHours))")))
       
-      sol = result %>% get_solution(x[i,j]) %>% filter(value == 1)
+      #solving for solution
+      result <- solve_model(model, with_ROI(solver = "glpk", verbose = TRUE))
       
-      # formatting nicely
-      sol = sol %>% rowwise %>% do({
-        X <- data.frame(., stringsAsFactors = F)
-        X$variable <- NULL
-        X$i <- baristaList[[X$i]]
-        X$value <- 'CHOSEN'
-        X
-      })
-      
-      # making it easy to see who works
-      
-      sol$day <- ceiling(sol$j/24)
-      # updating who works which day
-      for(day in sol$day){
-        solDay = sol[which(sol$day == day), ]
+      if(result$status != 'infeasible'){
         
-        rowsToUpdate <- solDay$j %% 24
-        solDF[rowsToUpdate, day] <<- solDay$i
+        sol = result %>% get_solution(x[i,j]) %>% filter(value == 1)
+        
+        # formatting nicely
+        sol = sol %>% rowwise %>% do({
+          X <- data.frame(., stringsAsFactors = F)
+          X$variable <- NULL
+          X$i <- baristaList[[X$i]]
+          X$value <- 'CHOSEN'
+          X
+        })
+        
+        # making it easy to see who works
+        
+        sol$day <- ceiling(sol$j/24)
+        # updating who works which day
+        for(day in sol$day){
+          solDay = sol[which(sol$day == day), ]
+          
+          rowsToUpdate <- solDay$j %% 24
+          
+          
+          updatedVals <- solDay$i
+          
+          # adding formatting for possibly 2 or more baristas per hour
+          updatedVals <-  chunk(updatedVals, as.numeric(howManyBaristasPerHour))
+          formattedVals <- list()
+          
+          counter_list <- 1
+          for(i in updatedVals){
+            formattedVals[counter_list] <- paste0(i,collapse =  ",")
+            counter_list = counter_list + 1
+          }
+          
+          solDF[unique(rowsToUpdate), day] <- c(paste0(formattedVals))
+          
+        }
+        
+        cafeScheduleDF <- solDF
+        
+      } else {
+        cafeScheduleDF <- solDF[F, ]
         
       }
-     
-      cafeScheduleDF <- solDF
       
-    } else {
-      cafeScheduleDF <- solDF[F, ]
-     
+      #reset solution incase re run
+      solDF <<- data.frame(day1_cafe_hours = rep(0,24),
+                           day2_cafe_hours = rep(0,24),
+                           day3_cafe_hours = rep(0,24),
+                           day4_cafe_hours = rep(0,24),
+                           day5_cafe_hours = rep(0,24),
+                           day6_cafe_hours = rep(0,24),
+                           day7_cafe_hours = rep(0,24), 
+                           stringsAsFactors = F)
+      
+      # output solution
+      if (length(cafeScheduleDF[cafeScheduleDF == 0]) > 0){
+        
+        cafeScheduleDF[cafeScheduleDF == 0] <- "~"
+        
+      }
+      
+      output$scheduleDataFrame <- renderDataTable( cafeScheduleDF, options = 
+                                                     list(paging = F, searching = F, ordering=F, 
+                                                          language = list(
+                                                            zeroRecords = "No schedule possible!")))
+      
     }
-    
-    #reset solution incase re run
-    solDF <<- data.frame(day1_cafe_hours = rep(0,24),
-                        day2_cafe_hours = rep(0,24),
-                        day3_cafe_hours = rep(0,24),
-                        day4_cafe_hours = rep(0,24),
-                        day5_cafe_hours = rep(0,24),
-                        day6_cafe_hours = rep(0,24),
-                        day7_cafe_hours = rep(0,24), 
-                        stringsAsFactors = F)
-    
-    # output solution
-    if (length(cafeScheduleDF[cafeScheduleDF == 0]) > 0){
-      
-      cafeScheduleDF[cafeScheduleDF == 0] <- "~"
-      
-    }
-    
-    output$scheduleDataFrame <- renderDataTable( cafeScheduleDF, options = 
-                                                   list(paging = F, searching = F, ordering=F, 
-                                                        language = list(
-                                                          zeroRecords = "No schedule possible!")))
-    
-  }
   })
   
   
