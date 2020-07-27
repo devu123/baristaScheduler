@@ -80,6 +80,8 @@ ui <- shinyUI(fluidPage(
                   
                   #submit button
                   actionButton("submit", label = "Add Barista"),
+                  #submit button
+                  actionButton("del", label = "Delete Last Barista"),
                   #clear all baristas
                   actionButton("clear", label = "Clear All Baristas"),
                   
@@ -166,6 +168,26 @@ server <- shinyServer(function(input, output) {
       minHoursListReactive$dList <- c(isolate(minHoursListReactive$dList), isolate(input$baristaMinHoursInput))
       
     }
+  })
+  
+  # delete last barista 
+  observeEvent(input$del, {
+    
+    
+      addRows <- baristaPairs$df
+      names(addRows) <- c('barista', 'timeAvail1', 'timeAvail2', 'timeAvail3', 'timeAvail4', 
+                          'timeAvail5', 'timeAvail6', 'timeAvail7')
+      
+      print(addRows)
+      newAddRows <- head(addRows, n = nrow(addRows) - 2)
+      print(newAddRows)
+      
+      isolate(baristaPairs$df <- newAddRows)
+
+      print(minHoursListReactive$dList)
+      newMinHoursReactiveList <- head(minHoursListReactive$dList, n = (length(minHoursListReactive$dList) - 2))
+      minHoursListReactive$dList <- c(isolate(newMinHoursReactiveList))
+      print(minHoursListReactive$dList)
   })
   
   # on submitHours, log cafe time
