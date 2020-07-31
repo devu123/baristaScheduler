@@ -3,7 +3,9 @@
 Schedule Your Baristas 
 with a simple linear optimizer:
 <br>
-just put your baristas hours in, and the cafe's hours in.
+Justt put each barista's hours available to work in, and the cafe's open hours in.
 <br>
 <br>
+Can also handle minimum hours per baristas, and multiple baristas needed per hour.
+
 
