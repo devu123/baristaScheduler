@@ -7,5 +7,3 @@ just put your baristas hours in, and the cafe's hours in.
 <br>
 <br>
 
-** in development
-
