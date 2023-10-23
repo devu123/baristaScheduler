@@ -1,5 +1,7 @@
 # Barista Scheduler 
 
+https://devuroasts.shinyapps.io/baristaScheduler/
+
 Schedule Your Baristas 
 with a simple linear optimizer:
 <br>
